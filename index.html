@@ -91,8 +91,6 @@ footer{min-height:40px;display:flex;align-items:center;justify-content:space-bet
 .message{max-width:91%;flex:none;border-radius:14px;padding:10px 13px;white-space:pre-wrap;overflow-wrap:anywhere;font:15px/1.65 system-ui,sans-serif}
 .message.incoming{background:#f5e8d8;border-bottom-left-radius:4px}.message.outgoing{align-self:flex-end;background:#f8d4dc;border-bottom-right-radius:4px}
 .message small{display:block;font-size:11px;color:#805c4c;margin-top:5px}
-.chat-suggestions{padding:3px 15px 8px;display:flex;gap:6px;flex-wrap:wrap}
-.chat-suggestions button{background:#fff7ec;border:1px solid #dbb6a6;font-size:12px;color:#825543;border-radius:16px;padding:5px 9px;cursor:pointer}
 #chat-form{padding:10px 14px 14px;display:flex;gap:8px;border-top:1px solid #ead6c0}
 #chat-input{flex:1;min-width:0;background:#fffcf6;border:1px solid #d4b09d;border-radius:12px;padding:10px 11px;font:16px system-ui;color:#513a2d}
 #chat-form button{border:0;border-radius:11px;background:#b85f79;color:white;font-weight:600;padding:0 15px;cursor:pointer}
@@ -226,9 +224,16 @@ footer{min-height:40px;display:flex;align-items:center;justify-content:space-bet
 .has-media .skill-note{white-space:pre-line;margin-top:1em}
 .skill-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em .8em;margin-top:1em}
 .skill-gallery figure{margin:0;min-width:0}.skill-gallery figure:only-child{grid-column:1/-1}
-.skill-gallery .photo-tile{padding:4px;background:#fffaf0;border:1px solid #dcbea6;box-shadow:0 2px 4px #946d5322}
-.skill-gallery .photo-tile img{height:auto;aspect-ratio:4/3;object-fit:contain;background:#f6ead7}
-.skill-gallery figure:only-child .photo-tile img{aspect-ratio:auto 4/3}
+.skill-gallery :is(.photo-tile,.video-tile){display:block;width:fit-content;max-width:100%;min-height:0;margin-inline:auto;padding:0;border:0;background:transparent;box-shadow:0 0 0 1px #dcbea6,0 2px 4px #946d5322}
+.skill-gallery :is(.photo-tile,.video-tile) img{width:auto;max-width:100%;height:auto;max-height:44vh;background:transparent}
+.skill-gallery .video-play{left:50%;top:50%;transform:translate(-50%,-50%)}
+@media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+  .skill-gallery .photo-tile{transition:transform 160ms ease,box-shadow 160ms ease}
+  .skill-gallery .photo-tile:is(:hover,:focus-visible){transform:translateY(-3px);box-shadow:0 0 0 1px #c6a68a,0 5px 10px #78593d38}
+}
+#still-viewer.photo-flight{overflow:visible;background:transparent;border-color:transparent}
+#still-viewer.photo-flight > :not(.moving-photo){opacity:0}
+#still-viewer .moving-photo{position:fixed;display:block;pointer-events:none;max-width:none;max-height:none;margin:0;transform-origin:0 0;box-shadow:0 6px 18px #49342a38}
 .skill-gallery figcaption{font-size:clamp(11px,1.03cqw,15px);text-align:center}
 @media(max-width:700px) and (orientation:portrait){.print-skill-card.has-media{padding:24px 7%}.has-media .skill-stamp{width:53px!important}.skill-gallery{gap:12px 8px}.skill-gallery figcaption{font-size:12px}}
 
@@ -577,9 +582,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 <audio id="player" preload="none" loop></audio>
 
 <dialog id="avatar-chat" aria-labelledby="avatar-name">
-  <header class="avatar-bar"><img src="assets/3412fe7213fbea6293.jpg" alt=""><div><h2 id="avatar-name">潼潼的AI分身</h2><span id="avatar-mode">资料来自潼潼的简历和技能手帐</span></div><button type="button" class="close-avatar" aria-label="关闭对话">×</button></header>
+  <header class="avatar-bar"><img src="assets/3412fe7213fbea6293.jpg" alt=""><div><h2 id="avatar-name">潼潼的AI分身</h2></div><button type="button" class="close-avatar" aria-label="关闭对话">×</button></header>
   <div class="chat-log" role="log" aria-label="对话记录" aria-live="polite"><div class="message incoming">你好呀，我是潼潼的AI分身。想和我聊聊什么？</div></div>
-  <div class="chat-suggestions" aria-label="可以这样问"><button type="button">讲讲你的跨境直播项目</button><button type="button">你做过哪些内容运营？</button></div>
   <form id="chat-form"><label for="chat-input" class="visually-hidden">给潼潼的分身留言</label><input id="chat-input" maxlength="1000" placeholder="问问潼潼的经历..." autocomplete="off" required><button type="submit">发送</button></form>
 </dialog>
 
@@ -1216,7 +1220,11 @@ function knowledgeSections(resume,extra){
     title:item.title||section.title,
     text:[item.meta,item.body].filter(Boolean).join('。')
   })));
-  return [...entries,...extra].map((item,index)=>({...item,id:'S'+(index+1)}));
+  return [...entries,...extra].map((item,index)=>({
+    ...item,id:'S'+(index+1),
+    // The newer interview leaves these two statistics unconfirmed.
+    text:item.text.replace('（全球前 30%）','').replace('，成绩位列全球前30%','').replace('，最高笔记支付转化率达 300%','')
+  }));
 }
 function selectEvidence(items,question,history=[]){
   const aliases=[
@@ -1234,21 +1242,27 @@ function selectEvidence(items,question,history=[]){
   ];
   function terms(text){
     const q=text.toLowerCase(),out=new Set(q.match(/[a-z0-9][a-z0-9.+-]+/g)||[]);
-    for(const run of q.match(/[\u3400-\u9fff]{2,}/g)||[])for(let i=1;i<run.length;i++)out.add(run.slice(i-1,i+1));
+    const topic=q.replace(/你为什么|你怎么看|你怎么|你认为|你觉得|为什么|什么样的|如何|你的|你会|什么|哪些|怎样|请问/g,' ');
+    for(const run of topic.match(/[\u3400-\u9fff]{2,}/g)||[])for(let i=1;i<run.length;i++)out.add(run.slice(i-1,i+1));
     for(const [patterns,hints] of aliases)if(patterns.some(p=>q.includes(p)))for(const word of hints.split(' '))out.add(word);
     return [...out];
   }
   const focus=terms(question),previous=terms(history.filter(m=>m.role==='user').slice(-1).map(m=>m.content).join(' '));
   const rank=(words,item)=>words.reduce((score,w)=>score+(item.title.toLowerCase().includes(w)?4:0)+(item.source.toLowerCase().includes(w)?2:0)+(item.text.toLowerCase().includes(w)?1:0),0);
-  const ranked=items.map(item=>({item,score:rank(focus,item),previous:rank(previous,item)}));
+  const normalize=text=>text.toLowerCase().replace(/[\s\p{P}]/gu,'');
+  const prompt=normalize(question);
+  const ranked=items.map(item=>{
+    const exact=prompt===normalize(item.title);
+    const alias=item.aliases?.some(phrase=>prompt.includes(normalize(phrase)));
+    return {item,score:rank(focus,item)+(exact?100:alias?36:0),previous:rank(previous,item)};
+  });
   const followUp=/^(那|再|具体|还有|当时|这|它|why|how so|tell me more)/i.test(question.trim());
   return ranked.map(v=>({...v,score:v.score+(followUp ? 0.55 : 0.10)*v.previous})).sort((a,b)=>b.score-a.score);
 }
 
 const avatarChat=document.querySelector('#avatar-chat'),chatLog=avatarChat.querySelector('.chat-log');
 const chatForm=document.querySelector('#chat-form'),chatInput=document.querySelector('#chat-input');
-const chatMode=document.querySelector('#avatar-mode');
-const evidence=knowledgeSections(personalResume,[{"source": "技能手帐", "title": "专业技能", "text": "英语技能、CFA（特许金融分析师）"}, {"source": "技能手帐 · 专业技能", "title": "英语技能", "text": "潼潼把英语技能列在专业技能中。\n语言学习是我本科期间专业之外的一项重要积累。我通过了英语专业八级、专业四级考试，大学英语六级 552 分、四级 592 分，国才初级获评优秀。同时，我还修读了翻译交叉专业，联络口译与英汉笔译两门课程均取得 92 分。\n\n在学习翻译的过程中，我逐渐意识到，语言从来不只是信息传递的工具。每一种语言背后，都有独特的历史、文化、生活经验与认识世界的方式。我很喜欢这样一种理解：翻译不是把我讲给你听，而是把我的眼睛借给你，让你看看我所看到的世界。即使在 AI 已经能够高效完成大量翻译工作的今天，我依然认为，亲自掌握一门语言、理解另一种文化所带来的认知体验，以及人与人之间真正的理解与共鸣，依然十分珍贵。\n\n这种认识也延伸到了我对商务英语沟通的理解。有效的商务沟通不仅需要准确、得体的语言表达，更需要理解对方的文化背景、商业诉求与思维方式，知道如何站在对方的立场组织信息、传递价值，并在差异中建立共识。金融专业与翻译学习的结合，也让我能够在理解专业信息与商业逻辑的基础上，进行跨语言、跨文化的表达与沟通。\n\n对我而言，语言既是连接人与人的桥梁，也是拓宽认知边界的窗口。它让我有机会接触未经转述的知识、理解不同的观点，并借助另一种语言的眼睛，看到世界原本不曾向我展现的一面。\n英语专业八级\n英语专业四级\n大学英语六级 · 552 分\n大学英语四级 · 592 分\n国才考试初级 · 优秀\n翻译交叉专业修读证书"}, {"source": "技能手帐 · 专业技能", "title": "CFA（特许金融分析师）", "text": "潼潼把CFA（特许金融分析师）列在专业技能中。\n大三的11月18日，通过两个月的紧密备考，我成功通过了CFA一级考试，成绩位列全球前30%。回顾这段历程，我认为自己最大的收获并不只是记住了多少金融知识，更在于逐渐建立起了一套理解复杂问题的方式。面对一个陌生的问题，我习惯先弄清楚它背后的运行逻辑，哪些因素真正决定了结果，现有的信息是否足以支撑我的判断，以及是否存在其他可能性。金融学也让我意识到，现实中很多问题并没有标准答案，比找到一个看似正确的答案更重要的，是理解每一种选择背后的代价与可能性。\n\n本科期间，我接触了经济学、计量经济学、金融工程、管理学、大数据可视化以及跨文化沟通等不同领域的知识。经济学让我试着理解人们为什么做出某种选择，计量经济学让我意识到直觉需要经过数据的检验，管理学让我思考个体、组织与商业之间的关系，而语言和文化类课程则让我学会跳出自己熟悉的语境，从不同角度理解同一件事。我越来越享受不同学科之间产生联系的过程，因为很多有意思的想法，恰恰诞生于原本看似无关的知识之间。\n\n这种好奇心也延伸到了我的专业之外。最近，我开始主动探索 AI、Vibe Coding 等领域，尝试借助 AI 工具完成创意设计与动画项目。我很享受从一个模糊的想法出发，主动寻找知识、选择工具、反复试错，最终让想法变成具体作品的过程。对我而言，技术的吸引力不仅在于它能提高效率，更在于它拓宽了一个人能够探索和创造的边界。\n\n是的，我并不希望自己的职业可能性被所学专业预先定义。我更希望自己成为一个能够连接不同领域知识的人，既能理解商业世界的运行逻辑，也愿意拥抱新的技术与思维方式；既能够理性地分析问题，也保有探索未知、创造新事物的热情。\n\n因为我始终相信，专业是我知识的起点，而不是自己能力的边界。\n2024 年 11 月 · CFA 一级考试通过"}, {"source": "技能手帐", "title": "兴趣技能", "text": "钢琴、主持、爵士舞、瑜伽、游泳、驾车、旅行、摄影、剪辑、写作、阅读、AI 创作、烹饪、咖啡与拉花、调酒"}, {"source": "技能手帐 · 兴趣技能", "title": "钢琴", "text": "潼潼把钢琴列在兴趣技能中。\n5岁时接到的一张钢琴社传单改变了我的兴趣爱好轨迹，妈妈为此买了很多理查德·克莱德曼的钢琴曲集，还有郎朗的传记供我学习，每周一次的钢琴课构成了我童年的回忆。\n五年级的我\n现在的我"}, {"source": "技能手帐 · 兴趣技能", "title": "主持", "text": "潼潼把主持列在兴趣技能中。\n我常常会回忆起在文艺部和伙伴们一起筹备晚会日子。迎新周、学科讲座、元旦晚会、双语晚会、运动会和文化节…… 我们通过节目连接彼此，通过排练加深合作，通过舞台挥展才华，带着团队表达自我、并肩作战、共同成长。每一次站在舞台上，站在观众面前，身体总会自动展现出它最大的潜力，让我越讲越自信，越说越动容，仿佛希望我的声音能传达到每一位观众的心底。\n舞台上的我\n现场主持\n舞台全景\n双人主持"}, {"source": "技能手帐 · 兴趣技能", "title": "爵士舞", "text": "潼潼把爵士舞列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "瑜伽", "text": "潼潼把瑜伽列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "游泳", "text": "潼潼把游泳列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "驾车", "text": "潼潼把驾车列在兴趣技能中。\n我拿到C1驾照啦！科目二和科目三都是满分，一次通过！现在最想做的就是找个周末，带上我的小行李，自己开车出去玩。听说金山岭那边的阿那亚很惬意，不过冬天到了，是不是崇礼会更适合呢？"}, {"source": "技能手帐 · 兴趣技能", "title": "旅行", "text": "潼潼把旅行列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "摄影", "text": "潼潼把摄影列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "剪辑", "text": "潼潼把剪辑列在兴趣技能中。\n我的 Vlog"}, {"source": "技能手帐 · 兴趣技能", "title": "写作", "text": "潼潼把写作列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "阅读", "text": "潼潼把阅读列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "AI 创作", "text": "潼潼把AI 创作列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "烹饪", "text": "潼潼把烹饪列在兴趣技能中。\n我的拿手菜有番茄土豆炖牛腩、苹果炖猪排、双椒肉末、辣椒炒肉、水煮肉片、红烧鸡翅、葱烧肥牛、青椒肉丝，还有银耳红枣莲子羹。"}, {"source": "技能手帐 · 兴趣技能", "title": "咖啡与拉花", "text": "潼潼把咖啡与拉花列在兴趣技能中。\n如果来找我喝咖啡，你想点哪一杯？Espresso、美式、拿铁、摩卡我都会做，也会做手冲、冰滴，用摩卡壶煮咖啡。喜欢酸甜口的话，想请你试试我拿手的黑糖话梅美式。喜欢奶咖的话，还有芝士拿铁、Dirty、抹茶拿铁和红茶可可卡布奇诺。每次收杯时，看到丝滑漂亮的拉花是做咖啡最治愈的时刻～\n制作芝士冰拿铁中\n我的拿铁制作全流程\n完美的大白心\n丝滑的千层心"}, {"source": "技能手帐 · 兴趣技能", "title": "调酒", "text": "潼潼把调酒列在兴趣技能中。"}, {"source": "Demo · 作品相册", "title": "三创", "text": "我制作的 PPT。三创赛国赛路演 PPT"}, {"source": "Demo · 评论区手记", "title": "先告诉对方，去哪儿能买到", "text": "看到“哪个网站买啊！急死我了”，我会尽快告诉对方哪天上、在哪儿买。人家问出口的时候，可能就差这一个答案。等久了，想买的劲儿会过去，旁边的人看见问题一直晾着，也可能觉得品牌只顾发帖，或者产品真有什么问题。"}, {"source": "Demo · 评论区手记", "title": "让熊自己报个身高", "text": "自嘲熊会说“俺是14cm的小胖熊”，再配上它自己的表情包。对方也顺着喊它“小胖熊”，这就聊起来啦！换成 emoji，我会回得更抽象、更“发疯”一点。每个 IP 都有自己的说话方式，但谁来问尺寸、材质，我都得给个准话。"}, {"source": "Demo · 评论区手记", "title": "看看这只熊今天去了哪儿", "text": "有人把熊带去朗读亭，还给它戴上了大耳机。我看完照片，回了句“文艺青熊”。我会认真读完留言，也看看照片里有什么。人家给熊安排了这么有意思的一天，当然值得好好接一句呀。"}, {"source": "Demo · 评论区手记", "title": "有人给运营加了个鸡腿", "text": "有位读者专门夸我回评论时配的熊表情包可爱，说要给运营加鸡腿。我又回了一张写着“厚脸皮”的熊。有人问清楚了能放心下单，有人收到熊还想回来晒张图，我都很开心。也希望这点好感能留下来，下次看到我们出别的系列，还愿意点进来逛逛。"}, {"source": "时光网 · emoji", "title": "看我发现了什么干饭神器", "text": "产品视频，趣味餐具演示。截图记录 1.2万 赞、3966 收藏、137 评论。"}, {"source": "时光网 · 自嘲熊", "title": "天呐，可爱的自嘲熊来啦～", "text": "图文，联名官宣。截图记录 2936 赞、466 收藏、410 评论。"}, {"source": "时光网 · 河狸变身计划", "title": "Oh，隔壁工位惊现一只梅宝…", "text": "图文，工位情景拍摄。截图记录 2393 赞、173 收藏、15 评论。"}, {"source": "时光网 · 自嘲熊", "title": "沉浸式拆爆米花自嘲熊毛绒挂件", "text": "产品视频，毛绒挂件开箱。截图记录 2179 赞、194 收藏、49 评论。"}, {"source": "时光网 · 河狸变身计划", "title": "妈妈狸生是旷野啊", "text": "图文，梅宝春游外拍。截图记录 1939 赞、68 收藏、30 评论。"}, {"source": "时光网 · 自嘲熊", "title": "预售啦，把可爱的自嘲熊带回家了吗？", "text": "图文，新品预售。截图记录 1822 赞、183 收藏、90 评论。"}, {"source": "时光网 · 小马宝莉", "title": "是谁又被欣欣子宠爱啦？是碧琪！", "text": "图文，碧琪造型桶穿搭。截图记录 1283 赞、82 收藏、93 评论。"}, {"source": "时光网 · 迈克尔杰克逊大电影", "title": "MJ 大电影官方正版周边", "text": "图文，黑金话筒杯产品摄影。截图记录 1062 赞、280 收藏、114 评论。"}, {"source": "时光网 · 河狸变身计划", "title": "是官周，河狸变身计划大集合", "text": "图文，系列周边合影。截图记录 866 赞、143 收藏、31 评论。"}, {"source": "时光网 · 福运座驾", "title": "福运座驾毛绒车钥匙盲盒开箱大放送！", "text": "产品视频，盲盒开箱。截图记录 844 赞、121 收藏、26 评论。"}, {"source": "时光网 · 小马宝莉", "title": "再也不用担心出门带娃弄脏啦！", "text": "图文，随身挂件搭配。截图记录 821 赞、247 收藏、88 评论。"}, {"source": "时光网 · 自嘲熊", "title": "人 想和自嘲熊一起看电影嘛", "text": "图文，影院场景搭配。截图记录 697 赞、106 收藏、29 评论。"}, {"source": "时光网 · 福运座驾", "title": "今天来给我的娃提车了！", "text": "产品视频，玩偶车库情景短片。截图记录 677 赞、336 收藏、3 评论。"}, {"source": "时光网 · 自嘲熊", "title": "想要一个全是自嘲熊返图的评论区！", "text": "图文，评论区返图征集。截图记录 641 赞、61 收藏、159 评论。"}, {"source": "时光网 · 自嘲熊", "title": "今天来拆亚克力自嘲熊挂件！", "text": "产品视频，亚克力挂件演示。截图记录 542 赞、45 收藏、13 评论。"}, {"source": "Demo · 作品相册", "title": "时光网", "text": "我运营的帖子。在儒意电影担任潮玩市场营销实习生期间，我主要负责时光网小红书与天猫平台的内容策划及运营，参与了小马宝莉、自嘲熊、福运座驾、河狸变身计划、迈克尔·杰克逊大电影、Emoji 等联名及自研 IP 的营销推广。从前期选题策划、文案撰写、产品摄影与视频制作，到后期用户互动、产品手册制作、线下布展及现场销售，我参与了从内容创作、品牌传播到销售转化的多个环节。\n\n在这个过程中，我逐渐意识到，站在品牌视角介绍一款产品，与站在消费者视角理解一款产品，是两件很不一样的事情。尤其是潮玩，消费者购买的不只是商品本身，还有对 IP 的情感认同、对某种审美的偏爱，以及对自我个性和生活态度的表达。因此，我开始更加关注不同 IP 背后的受众特征，思考怎样的选题能够引起共鸣、怎样的视觉表达能够吸引用户，以及如何通过内容建立产品与消费者之间的情感连接。\n小红书运营方面：产出 6 篇浏览量破万的笔记，单篇最高浏览量达 6.5 万+，篇均浏览量达 4,000+；6 篇笔记点赞量破千，单篇最高获赞 1.2 万，账号累计涨粉 2,000+。笔记点击率由 9.37% 提升至 30.27%，运营期间单月商品支付金额最高突破 20 万元。\n\n天猫运营方面：协助制作 4 张点击率超过 10% 的产品封面，发布多条浏览量突破 10 万的宣发视频，其中单条视频向直播间的引流点击率达 4.04%。\n\n这段经历让我对marketing有了更具体的认识：好的内容不仅需要创意和审美，更需要理解产品与消费者，思考如何将用户的注意力、兴趣与情感认同转化为实际消费行为。我也逐渐养成了结合内容表现、用户反馈与商业转化来审视创意的习惯。对我而言，市场营销的魅力恰恰在于理性与感性的结合——既需要对人的情绪与需求保持敏感，也需要用数据检验自己的判断，在创意表达与商业目标之间找到平衡。"}, {"source": "Demo · 作品相册", "title": "AI 小作品", "text": "我的 AI 小作品。Codex 启动动画"}, {"source": "三创赛国赛路演 PPT", "title": "三创赛国赛路演 PPT", "text": "这份 18 页国赛路演稿围绕砀山梨展开，主题是打造多渠道电商营销助农新模式。第 2 至 5 页介绍项目背景、痛点和商业模式，包括直播引流、社群合作以及线上线下一体化。"}, {"source": "三创赛国赛路演 PPT", "title": "三创赛国赛路演 PPT", "text": "第 8 至 14 页展示内容平台、社群、营销活动、直播和销售数据，并复盘品牌特色、用户需求与内容差异化。第 15 至 17 页提出梨产品加工、梨园研学与线上云游等设想，属于未来展望。"}]);
+const evidence=knowledgeSections(personalResume,[{"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "如果不用简历介绍自己，你会怎么介绍？", "text": "我对很多东西感兴趣：金融、语言、审美、时尚、技术和创造。我希望把人生当成一件艺术品去打磨，既能够理解世界，也能够充分体验和表达它。我会在意成就，也在意生活的趣味。我不觉得一个人需要被所学专业或某种风格定义。", "archive": true, "aliases": ["自我介绍", "介绍一下自己", "不用简历"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你为什么认为专业不是能力的边界？", "text": "我学的是金融，但我也学习翻译、做过市场营销，最近还开始尝试AI创作。不同领域带给我的东西并不完全一样，也可以相互产生联系。专业是你的知识起点，而不是你的能力边界。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "为什么消费者愿意为潮玩买单？", "text": "潮玩不仅有商品本身的价值，也可能承载对IP的情感认同、审美偏好及个性表达。我在做内容时逐渐意识到，站在品牌视角介绍产品与站在消费者视角理解产品，是两件不同的事。好的营销需要理解这种差异。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你怎么看流量与商业转化？", "text": "我希望把内容的创意、用户反馈与实际消费行为联系起来看。高浏览和高点赞不能自动等于高成交。内容既需要审美和吸引力，也需要理解用户、产品及商业目标。", "archive": true, "aliases": ["流量和销量", "流量和转化"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你希望找到什么样的工作？", "text": "我希望找到一份热爱、愿意为之奋斗、有成长性和价值感的事业。工作也是生活的一部分，我不想仅仅把它看作换取生活资源的代价。当然，长期透支身心也不是我想要的。", "archive": true, "aliases": ["理想工作", "什么样的工作"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "AI已经可以翻译了，为什么还要学习外语？", "text": "我认为语言不仅是信息传递的工具，也承载文化和认识世界的方式。AI可以帮助我们跨越很多语言障碍，但亲自学习另一种语言、体验另一种文化所带来的感受，以及人与人之间的理解与共鸣，依然珍贵。", "archive": true, "aliases": ["为什么还要学外语", "ai翻译", "学外语的意义"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你为什么开始Vibe Coding？", "text": "其实我的动机没那么纯粹。有好奇心、有胜负欲、有时代焦虑，也想克服自己原先对电脑和代码的抵触。看到同学使用AI的实际效果之后，我开始尝试。真正做出作品的时候，我很惊喜，甚至想起小时候热爱阅读、画画和写作的自己。", "archive": true, "aliases": ["为什么使用ai", "为什么开始用ai", "学ai的契机", "vibecoding"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你认为哪款AI最好？", "text": "我觉得不能脱离需求直接排名。工作流、偏好、使用程度、网络条件和成本，都可能让不同人的实际体验不同。我自己也还在探索。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "如果没人看见你的作品，你还会创造吗？", "text": "目前我很难给出一个确定答案。创造本身的快乐与他人的认可对我都很重要，只不过两者的比重可能会随着时间变化。我希望以后能重拾阅读的耐心，重新找回绘画和写作的能力。", "archive": true, "aliases": ["没有观众", "没人看", "别人不认可", "没人认可"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你如何培养审美？", "text": "我把摄影、P图、剪视频、探店、穿搭、香水以及时尚相关的爱好统称为审美积累。我喜欢观察、体验不同的风格，也希望自己的创作能力能跟得上审美和想法。", "archive": true, "aliases": ["审美积累", "提升审美", "培养审美"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你认为什么样的人生是好的？", "text": "我想把人生当成一件艺术品去打磨。我想环球旅行，也想找到一份热爱且有价值感的事业。成就与体验我都想要，只是不同阶段会有不同的取舍。", "archive": true, "aliases": ["理想的人生", "好的人生", "人生当成艺术品"]}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你怎么看优绩主义？", "text": "我对它的态度比较复杂。我既从中获益，也感受到结果导向对自由阅读、探索和创作空间的挤压。我不想否定过去努力的自己，但也希望未来能给不那么功利的兴趣留出更多空间。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "面对无法控制的事情，你怎么做？", "text": "尽人事，听天命，随缘。我愿意尽可能做好能做的事情，也相信随着个人成长、认知与格局扩大，有些困扰会慢慢找到解决方式，或者变得没那么重要。剩下的，就是好好生活，主动发现生活中的美。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你希望成为怎样的人？", "text": "独立、坚韧、自由、可爱、对他人有价值、强大。这些品质与性别无关。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 参考回答", "title": "你最大的缺点是什么？", "text": "过于追求完美。哈哈，这确实听起来很像面试标准答案，但也确实是我的真实感受。我对重视的作品有比较高的要求，希望自己的能力跟得上审美和想法。至于一些始终不擅长的领域，我也会接受自己的局限。", "archive": true, "aliases": ["最大的缺点", "最大的短板"]}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "金融与跨学科学习", "text": "金融学习带给我的不只是专业知识，更是一种理解复杂问题的方法。我希望弄清楚事情背后的运行逻辑、哪些因素真正影响结果、信息能否支持判断，以及是否存在其他可能性。现实中的很多问题没有标准答案，理解每一种选择背后的代价与可能性，比找到一个看似正确的答案更加重要。\n\n经济学让我尝试理解人为什么做出某种选择，计量经济学提醒我直觉需要数据检验，管理学让我思考个体、组织与商业的关系，语言文化类课程则让我尝试跳出熟悉的语境。我对不同学科之间产生联系的过程很感兴趣。我希望将已有知识迁移到更广阔的场景，但不会把课程经历直接等同于成熟的实务能力。\n\n我并不希望自己的职业可能性被所学专业预先定义。专业是你的知识起点，而不是你的能力边界。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "品牌视角与消费者视角", "text": "站在品牌视角介绍一款产品，与站在消费者视角理解一款产品，是两件很不一样的事情。尤其是潮玩，消费者购买的不只是一个实体商品，还有对某个IP的情感认同、对一种审美的偏爱，甚至是对自我个性和生活态度的表达。\n\n因此，我开始关注不同IP背后的受众特征，思考什么样的选题能够引起共鸣、什么样的视觉表达能够吸引用户，以及如何通过内容建立产品与消费者之间的情感连接。\n\n好的内容不仅需要创意和审美，更需要理解产品、洞察用户，思考如何将用户的注意力、兴趣与情感认同转化为实际消费行为。我也逐渐建立起从内容表现、用户反馈到商业转化的思考习惯，尝试在创意表达与商业目标之间找到平衡。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "跨文化商务沟通与翻译", "text": "语言不只是信息传递的工具。每一种语言背后都有独特的历史、文化、生活经验与认识世界的方式。我喜欢这样一种关于翻译的理解：翻译不是把我讲给你听，而是把我的眼睛借给你，让你看看我所看到的世界。\n\n即使AI可以高效完成大量翻译工作，亲自掌握语言、理解另一种文化所带来的认知体验，以及人与人之间的理解与共鸣，仍然值得珍视。技术能够降低语言障碍，但不必取代人亲身体验另一种文化的过程。\n\n商务英语沟通不只是准确、得体地说英语，还涉及理解对方的文化背景、商业诉求和表达习惯，站在对方立场组织信息、传递价值并寻求共识。金融与翻译的学习为我理解专业信息和跨语言表达提供了基础。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "从抵触电脑到用 AI 创作", "text": "我不是一开始就热爱技术的人。曾经很长时间，我对电脑、代码和复杂AI工具有抵触。直到亲眼看到技术能够解决实际问题，才愿意重新审视自己的判断。我想尝试，不只是因为好奇，也有胜负欲、虚荣心、优绩主义、同辈压力和时代焦虑。我想跟上时代，走出舒适圈，克服曾经不擅长的事情。我不觉得这些动机需要被包装得很纯粹。\n\n真正开始创造之后，原本存在于脑海中的想法变成了具体的作品。这带给我自信，也重新唤起童年阅读、绘画、写作时的快乐。我不认为一种AI工具对所有人都最好。需求、工作流、偏好、雷点、使用程度和网络条件都会影响实际体验。比起仅凭宣传判断，我更愿意使用、比较之后形成自己的评价。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 本人原话", "title": "从抵触电脑到用 AI 创作 · 访谈原话", "text": "有好奇心，有正反馈，有胜负欲，有探索欲，有一点我好像想要触及和表达的东西。\n\n我仿佛短暂回到了童年时那个热爱创作，热爱想象的小女孩。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "小时候的写作、阅读与保研经历", "text": "小时候阅读和创作对我来说并不是需要坚持的任务，而是可以让我废寝忘食的事情。后来学习逐渐受到评价标准与目标约束。大学里我想摆脱应试思维，却又进入了保研和优绩主义的体系。我既从中获益，又感受到它对自由探索和创造空间的挤压，因此无法简单地否定它。\n\n互联网为我提供了更多信息，但我也越来越习惯参考别人的路径、复制攻略，追求速度和效率。我开始反思：接收信息、完成任务和真正产生自己的思想，究竟是不是同一件事？\n\n保研结束后，我希望重新把自己养一遍。最近的AI探索让我重新体验到创造的乐趣。我依然会在意成果和认可，但也希望恢复深入阅读的耐心、独立思考的空间，以及不完全以结果为前提的创造欲。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 本人原话", "title": "小时候的写作、阅读与保研经历 · 访谈原话", "text": "我努力想跳出高中的应试思维，但由于保研，很大程度上我摆脱不了，我只是又跳入了优绩主义的牢笼，充满功利的，结果导向的，追求速度和效率的。但是，我是优绩主义的既得利益者，我又能说什么呢？\n\n直到大四开学，保研结果出来，我才有机会好好的，重新把自己养一遍。\n\n他人的路径，复刻就好了，他人的攻略，照做就好了，我只顾着应接不暇地学习、完成，我哪里还有创作的激情和思想呢？我都不知道该从何创作起了。我还能创作吗？", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "小行李箱带来的创作体验", "text": "我目前无法确定，如果没有观众、认可或实际回报，自己还会创造什么。内在兴趣与外在驱动力兼有，比例可能随时间改变。我不想刻意将动机描述得很纯粹，也不想因此否定创作本身的快乐。我愿意尝试不同的创作形式，不急于为自己设限。最近的小行李箱项目给了我一种久违的温馨、满足与幸福。我希望有机会重新找回阅读、绘画和写作的能力。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "香水、穿搭与不同的审美风格", "text": "我很在意审美。我喜欢摄影、P图、剪视频、逛街、出片、探店、研究穿搭、了解奢侈品、装点朋友圈，也很喜欢香水和时尚相关的事物。这些从小就吸引我。我习惯把这些爱好统称为审美积累。我对气味很敏感，也会对身边很多事物形成自己的审美评价。\n\n我喜欢尝试不同风格，不希望被某一种标签固化。因为对自己重视的作品有较高要求，我也有一些完美主义，希望实现能力能够跟得上审美和想法。除了自己享受创造，我也希望自己的审美与作品可以感染身边的人。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 本人原话", "title": "香水、穿搭与不同的审美风格 · 访谈原话", "text": "我把自己这类爱好统称为审美积累。\n\n希望我的能力和创作能跟得上我的审美和想法。\n\n我喜欢尝试不同的风格，不喜欢过于标签化或者固化自己。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "工作、生活和环球旅行", "text": "我认同存在主义，希望通过自己的选择和行动去塑造人生。我的人生梦想是环球旅行，以及找到一份热爱、愿意为之奋斗、具有成长性和价值感的事业。\n\n我不一定非得追求传统意义上的Work-Life Balance。工作也是生命的一部分，我希望工作本身是值得投入的。当然，过于劳累不利于身心健康和长期发展，这也不是我追求的状态。\n\n金钱对我很重要。我有比较明显的消费主义倾向，喜欢吃喝玩乐，是一个非常现充的人。我愿意享受物质和现实生活，不觉得这和精神追求必须对立。成就和体验我都想要，不同阶段可以有不同的优先级。\n\n即使一种人生拥有很高的社会地位、财富和权力，如果伴随着大量束缚和规则，也未必是我愿意选择的人生。我更重视能够自主选择的空间。我希望自己独立、坚韧、自由、可爱、对他人有价值并且强大，这些品质与性别无关。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 本人原话", "title": "工作、生活和环球旅行 · 访谈原话", "text": "我算是存在主义的拥趸者。我希望把我的人生当成一个艺术品去打磨。\n\n工作也是生活的一部分，排除工作时间不也是排除了一部分生命吗？\n\n不断取得成就和能够充分体验世界也不冲突吧，我都想要。这个得看阶段性发展。\n\n我希望自己成为独立的、坚韧的、自由的、可爱的、对他人有价值的、强大的人，这不论女性不女性。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "交朋友时看重的品质与“异常值”", "text": "我比较外向，也需要从外部世界获取能量，但对交往对象和环境有自己的偏好。我喜欢有氛围、能够激发兴趣的环境，也喜欢与有思想、有意思、有个人风格、具有外在吸引力的人相处。\n\n我曾经比较慕强，但现在相比于单纯仰望优秀的人，我更关注自己欣赏对方身上的什么品质，以及这些品质是否有可能通过学习和实践成为我的一部分。我也希望尽可能帮助别人，分享经验和思想，拥有能够感染他人的精神力量。\n\n我并不排斥利益交换，认为它是成年社会中正常的关系机制。但实际资源和成长机会并不是吸引力的全部。有时，一个人的外在美、童真的心、活泼可爱的表现，以及他带给我的一些“异常值”，本身就足以让我喜欢和这个人相处。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "面对不确定性：尽人事，听天命", "text": "我愿意尽可能做好自己能够做的事情，但对于结果，我的态度是尽人事、听天命、随缘。有些事情需要等待因果成熟，而不必强行在当下解决。\n\n我认为个人的进步是解决问题的最优解。随着认知变深、视野变广、格局扩大，曾经困扰我的事情也许会变得没有那么重要，或自然找到解决办法。我更愿意将精力投入自身成长，而不是反复纠缠于暂时不可控的问题。\n\n剩下的，就是好好生活，主动发现生活中的美。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 本人原话", "title": "面对不确定性：尽人事，听天命 · 访谈原话", "text": "尽人事听天命，随缘。这是我一直以来的想法。背负因果直到因果成熟自动脱落，或者说，个人的进步是解决所有问题的最优解，因为个人的进步可以让我拥有更深更广的认知，更大的格局，这些也就都是小事了，自然迎刃而解。剩下的，就是好好生活，主动发现生活中的美。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "自洽、乐观与完美主义", "text": "过于追求完美的确算我的一个缺点，虽然它听起来很像面试标准答案，哈哈哈哈。我对自己真正重视的作品和事情要求比较高。除此之外，我目前没有觉得自己有太多长期困扰的缺点。\n\n我认为自己比较自洽、乐观，遇事往往会自然地想到积极的一面。偶尔有负面情绪，我觉得非常正常，没有必要始终保持积极。数理不是我的长项，如果实在学不会，那就随它去吧。我没有必要要求自己在所有领域都做到最好。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 本人原话", "title": "自洽、乐观与完美主义 · 访谈原话", "text": "我最大的缺点就是过于追求完美，这个笑死我了，因为我之前面试准备的时候真是这么准备的，虽然这的确是真实的。\n\n我算是比较能自洽，乐观，遇事自动脑子里就往好的方面想了。偶尔有负面情绪我觉得都很正常。\n\n像数理这种学不会的短板那就随它去吧。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "小时候喜欢电脑吗？", "text": "小时候我挺喜欢电脑，六岁接触金山打字，七岁就试着在台式电脑上写第一篇短篇小说。本科有一段时间电脑用得少，碰到复杂工具也会抵触。这两段经历都是真的。", "archive": true, "aliases": ["从小就讨厌电脑", "童年用电脑", "第一篇小说"]}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "你是专业开发者吗？", "text": "2026 年 11 月这次访谈时，我还是 AI 编程初学者。看到同学用 AI 做小组作业之后，我才慢慢开始尝试更多工具。做出自己的小项目让我很开心，也让我重新找回了小时候创作的感觉。", "archive": true, "aliases": ["专业开发者", "编程水平", "编程基础", "擅长编程", "会写代码", "编程高手"]}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "Codex 启动动画是怎么设计的？", "text": "我想让音符、持剑少女的金色轮廓和粒子接连出现，最后进入欢迎幕。我会反复看转场自然不自然、头发有没有被风吹动的感觉，也会听音乐怎么淡出去。这个作品收在小行李箱的 Demo 相册里。", "archive": true, "aliases": ["启动动画", "开场动画"]}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "雨夜重庆的创作想法", "text": "我想尝试把重庆的立体城市空间、雨夜的霓虹和音乐节奏放在一起，看看色彩和镜头的紧凑感能不能带出那种氛围。", "archive": true}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "实习销售额与个人贡献", "text": "我参与的是内容运营、产品拍摄和推广。按我实习时的记录，运营期间单月商品支付金额最高超过 20 万元。这个数是业务表现，我没有可以单独归到个人名下的销售额。", "archive": true, "aliases": ["个人销售额", "个人创造的", "个人成交额", "实习销售额"]}, {"source": "个人认知档案 · 2026-11-25 · 访谈整理", "title": "CFA 一级成绩与排名", "text": "我一次通过了 CFA 一级考试。关于全球排名，具体统计口径还需要核实。", "archive": true, "aliases": ["全球排名", "cfa排名", "全球前30"]}, {"archive": true, "title": "从 DeepSeek 到 Codex：什么时候开始用 AI？", "aliases": ["什么时候开始用ai", "第一次用ai", "deepseek"], "source": "个人认知档案 · 2026-11-25 · 经历整理", "text": "2025 年除夕，我开始用 DeepSeek，最初拿它聊学业规划、构思论文、做 PPT、写文案。2026 年读研后，我接触了更多工具。10 月看到同学用 AI 做小组作业的效果，我才真的有点心动。后来看到 Vibe Coding 的作品，也想试试用 Codex 把自己的想法做出来。"}, {"archive": true, "title": "本科专业与研究生学习", "aliases": ["什么专业", "教育背景是什么"], "source": "个人认知档案 · 2026-11-25 · 经历整理", "text": "我本科读金融，也修读了翻译交叉专业。2026 年 9 月开始读研。本科接触过经济学、计量经济学、金融工程、管理学、大数据可视化以及语言文化课程，我很喜欢不同学科之间产生联系的过程。"}, {"archive": true, "title": "你是谁？", "aliases": ["你是本人吗", "你是不是本人", "你是不是sadong本人", "是真人吗", "你是ai吗"], "source": "小行李箱 · 分身说明", "text": "你好呀，我是潼潼的 AI 分身。你可以问我她的经历、创作，或者她在访谈里聊过的想法。"}, {"archive": true, "title": "还没有公开记录的话题", "aliases": ["冲突的态度", "团队冲突", "道德困境", "私人访谈", "未公开的访谈"], "source": "个人认知档案 · 2026-11-25 · 公开范围", "text": "这个问题，潼潼目前没有留下可以公开分享的具体回答。"}, {"source": "技能手帐", "title": "专业技能", "text": "英语技能、CFA（特许金融分析师）"}, {"source": "技能手帐 · 专业技能", "title": "英语技能", "text": "潼潼把英语技能列在专业技能中。\n语言学习是我本科期间专业之外的一项重要积累。我通过了英语专业八级、专业四级考试，大学英语六级 552 分、四级 592 分，国才初级获评优秀。同时，我还修读了翻译交叉专业，联络口译与英汉笔译两门课程均取得 92 分。\n\n在学习翻译的过程中，我逐渐意识到，语言从来不只是信息传递的工具。每一种语言背后，都有独特的历史、文化、生活经验与认识世界的方式。我很喜欢这样一种理解：翻译不是把我讲给你听，而是把我的眼睛借给你，让你看看我所看到的世界。即使在 AI 已经能够高效完成大量翻译工作的今天，我依然认为，亲自掌握一门语言、理解另一种文化所带来的认知体验，以及人与人之间真正的理解与共鸣，依然十分珍贵。\n\n这种认识也延伸到了我对商务英语沟通的理解。有效的商务沟通不仅需要准确、得体的语言表达，更需要理解对方的文化背景、商业诉求与思维方式，知道如何站在对方的立场组织信息、传递价值，并在差异中建立共识。金融专业与翻译学习的结合，也让我能够在理解专业信息与商业逻辑的基础上，进行跨语言、跨文化的表达与沟通。\n\n对我而言，语言既是连接人与人的桥梁，也是拓宽认知边界的窗口。它让我有机会接触未经转述的知识、理解不同的观点，并借助另一种语言的眼睛，看到世界原本不曾向我展现的一面。\n英语专业八级\n英语专业四级\n大学英语六级 · 552 分\n大学英语四级 · 592 分\n国才考试初级 · 优秀\n翻译交叉专业修读证书"}, {"source": "技能手帐 · 专业技能", "title": "CFA（特许金融分析师）", "text": "潼潼把CFA（特许金融分析师）列在专业技能中。\n大三的11月18日，通过两个月的紧密备考，我成功通过了CFA一级考试，成绩位列全球前30%。回顾这段历程，我认为自己最大的收获并不只是记住了多少金融知识，更在于逐渐建立起了一套理解复杂问题的方式。面对一个陌生的问题，我习惯先弄清楚它背后的运行逻辑，哪些因素真正决定了结果，现有的信息是否足以支撑我的判断，以及是否存在其他可能性。金融学也让我意识到，现实中很多问题并没有标准答案，比找到一个看似正确的答案更重要的，是理解每一种选择背后的代价与可能性。\n\n本科期间，我接触了经济学、计量经济学、金融工程、管理学、大数据可视化以及跨文化沟通等不同领域的知识。经济学让我试着理解人们为什么做出某种选择，计量经济学让我意识到直觉需要经过数据的检验，管理学让我思考个体、组织与商业之间的关系，而语言和文化类课程则让我学会跳出自己熟悉的语境，从不同角度理解同一件事。我越来越享受不同学科之间产生联系的过程，因为很多有意思的想法，恰恰诞生于原本看似无关的知识之间。\n\n这种好奇心也延伸到了我的专业之外。最近，我开始主动探索 AI、Vibe Coding 等领域，尝试借助 AI 工具完成创意设计与动画项目。我很享受从一个模糊的想法出发，主动寻找知识、选择工具、反复试错，最终让想法变成具体作品的过程。对我而言，技术的吸引力不仅在于它能提高效率，更在于它拓宽了一个人能够探索和创造的边界。\n\n是的，我并不希望自己的职业可能性被所学专业预先定义。我更希望自己成为一个能够连接不同领域知识的人，既能理解商业世界的运行逻辑，也愿意拥抱新的技术与思维方式；既能够理性地分析问题，也保有探索未知、创造新事物的热情。\n\n因为我始终相信，专业是我知识的起点，而不是自己能力的边界。\n2024 年 11 月 · CFA 一级考试通过"}, {"source": "技能手帐", "title": "兴趣技能", "text": "钢琴、主持、爵士舞、瑜伽、游泳、驾车、旅行、摄影、剪辑、写作、阅读、AI 创作、烹饪、咖啡与拉花、调酒"}, {"source": "技能手帐 · 兴趣技能", "title": "钢琴", "text": "潼潼把钢琴列在兴趣技能中。\n5岁时接到的一张钢琴社传单改变了我的兴趣爱好轨迹，妈妈为此买了很多理查德·克莱德曼的钢琴曲集，还有郎朗的传记供我学习，每周一次的钢琴课构成了我童年的回忆。\n五年级的我\n现在的我"}, {"source": "技能手帐 · 兴趣技能", "title": "主持", "text": "潼潼把主持列在兴趣技能中。\n我常常会回忆起在文艺部和伙伴们一起筹备晚会日子。迎新周、学科讲座、元旦晚会、双语晚会、运动会和文化节…… 我们通过节目连接彼此，通过排练加深合作，通过舞台挥展才华，带着团队表达自我、并肩作战、共同成长。每一次站在舞台上，站在观众面前，身体总会自动展现出它最大的潜力，让我越讲越自信，越说越动容，仿佛希望我的声音能传达到每一位观众的心底。\n舞台上的我\n现场主持\n舞台全景\n双人主持"}, {"source": "技能手帐 · 兴趣技能", "title": "爵士舞", "text": "潼潼把爵士舞列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "瑜伽", "text": "潼潼把瑜伽列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "游泳", "text": "潼潼把游泳列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "驾车", "text": "潼潼把驾车列在兴趣技能中。\n我拿到C1驾照啦！科目二和科目三都是满分，一次通过！现在最想做的就是找个周末，带上我的小行李，自己开车出去玩。听说金山岭那边的阿那亚很惬意，不过冬天到了，是不是崇礼会更适合呢？"}, {"source": "技能手帐 · 兴趣技能", "title": "旅行", "text": "潼潼把旅行列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "摄影", "text": "潼潼把摄影列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "剪辑", "text": "潼潼把剪辑列在兴趣技能中。\n我的 Vlog"}, {"source": "技能手帐 · 兴趣技能", "title": "写作", "text": "潼潼把写作列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "阅读", "text": "潼潼把阅读列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "AI 创作", "text": "潼潼把AI 创作列在兴趣技能中。"}, {"source": "技能手帐 · 兴趣技能", "title": "烹饪", "text": "潼潼把烹饪列在兴趣技能中。\n我的拿手菜有番茄土豆炖牛腩、苹果炖猪排、双椒肉末、辣椒炒肉、水煮肉片、红烧鸡翅、葱烧肥牛、青椒肉丝，还有银耳红枣莲子羹。"}, {"source": "技能手帐 · 兴趣技能", "title": "咖啡与拉花", "text": "潼潼把咖啡与拉花列在兴趣技能中。\n如果来找我喝咖啡，你想点哪一杯？Espresso、美式、拿铁、摩卡我都会做，也会做手冲、冰滴，用摩卡壶煮咖啡。喜欢酸甜口的话，想请你试试我拿手的黑糖话梅美式。喜欢奶咖的话，还有芝士拿铁、Dirty、抹茶拿铁和红茶可可卡布奇诺。每次收杯时，看到丝滑漂亮的拉花是做咖啡最治愈的时刻～\n制作芝士冰拿铁中\n我的拿铁制作全流程\n完美的大白心\n丝滑的千层心"}, {"source": "技能手帐 · 兴趣技能", "title": "调酒", "text": "潼潼把调酒列在兴趣技能中。"}, {"source": "Demo · 作品相册", "title": "三创", "text": "我制作的 PPT。三创赛国赛路演 PPT"}, {"source": "Demo · 评论区手记", "title": "先告诉对方，去哪儿能买到", "text": "看到“哪个网站买啊！急死我了”，我会尽快告诉对方哪天上、在哪儿买。人家问出口的时候，可能就差这一个答案。等久了，想买的劲儿会过去，旁边的人看见问题一直晾着，也可能觉得品牌只顾发帖，或者产品真有什么问题。"}, {"source": "Demo · 评论区手记", "title": "让熊自己报个身高", "text": "自嘲熊会说“俺是14cm的小胖熊”，再配上它自己的表情包。对方也顺着喊它“小胖熊”，这就聊起来啦！换成 emoji，我会回得更抽象、更“发疯”一点。每个 IP 都有自己的说话方式，但谁来问尺寸、材质，我都得给个准话。"}, {"source": "Demo · 评论区手记", "title": "看看这只熊今天去了哪儿", "text": "有人把熊带去朗读亭，还给它戴上了大耳机。我看完照片，回了句“文艺青熊”。我会认真读完留言，也看看照片里有什么。人家给熊安排了这么有意思的一天，当然值得好好接一句呀。"}, {"source": "Demo · 评论区手记", "title": "有人给运营加了个鸡腿", "text": "有位读者专门夸我回评论时配的熊表情包可爱，说要给运营加鸡腿。我又回了一张写着“厚脸皮”的熊。有人问清楚了能放心下单，有人收到熊还想回来晒张图，我都很开心。也希望这点好感能留下来，下次看到我们出别的系列，还愿意点进来逛逛。"}, {"source": "时光网 · emoji", "title": "看我发现了什么干饭神器", "text": "产品视频，趣味餐具演示。截图记录 1.2万 赞、3966 收藏、137 评论。"}, {"source": "时光网 · 自嘲熊", "title": "天呐，可爱的自嘲熊来啦～", "text": "图文，联名官宣。截图记录 2936 赞、466 收藏、410 评论。"}, {"source": "时光网 · 河狸变身计划", "title": "Oh，隔壁工位惊现一只梅宝…", "text": "图文，工位情景拍摄。截图记录 2393 赞、173 收藏、15 评论。"}, {"source": "时光网 · 自嘲熊", "title": "沉浸式拆爆米花自嘲熊毛绒挂件", "text": "产品视频，毛绒挂件开箱。截图记录 2179 赞、194 收藏、49 评论。"}, {"source": "时光网 · 河狸变身计划", "title": "妈妈狸生是旷野啊", "text": "图文，梅宝春游外拍。截图记录 1939 赞、68 收藏、30 评论。"}, {"source": "时光网 · 自嘲熊", "title": "预售啦，把可爱的自嘲熊带回家了吗？", "text": "图文，新品预售。截图记录 1822 赞、183 收藏、90 评论。"}, {"source": "时光网 · 小马宝莉", "title": "是谁又被欣欣子宠爱啦？是碧琪！", "text": "图文，碧琪造型桶穿搭。截图记录 1283 赞、82 收藏、93 评论。"}, {"source": "时光网 · 迈克尔杰克逊大电影", "title": "MJ 大电影官方正版周边", "text": "图文，黑金话筒杯产品摄影。截图记录 1062 赞、280 收藏、114 评论。"}, {"source": "时光网 · 河狸变身计划", "title": "是官周，河狸变身计划大集合", "text": "图文，系列周边合影。截图记录 866 赞、143 收藏、31 评论。"}, {"source": "时光网 · 福运座驾", "title": "福运座驾毛绒车钥匙盲盒开箱大放送！", "text": "产品视频，盲盒开箱。截图记录 844 赞、121 收藏、26 评论。"}, {"source": "时光网 · 小马宝莉", "title": "再也不用担心出门带娃弄脏啦！", "text": "图文，随身挂件搭配。截图记录 821 赞、247 收藏、88 评论。"}, {"source": "时光网 · 自嘲熊", "title": "人 想和自嘲熊一起看电影嘛", "text": "图文，影院场景搭配。截图记录 697 赞、106 收藏、29 评论。"}, {"source": "时光网 · 福运座驾", "title": "今天来给我的娃提车了！", "text": "产品视频，玩偶车库情景短片。截图记录 677 赞、336 收藏、3 评论。"}, {"source": "时光网 · 自嘲熊", "title": "想要一个全是自嘲熊返图的评论区！", "text": "图文，评论区返图征集。截图记录 641 赞、61 收藏、159 评论。"}, {"source": "时光网 · 自嘲熊", "title": "今天来拆亚克力自嘲熊挂件！", "text": "产品视频，亚克力挂件演示。截图记录 542 赞、45 收藏、13 评论。"}, {"source": "Demo · 作品相册", "title": "时光网", "text": "我运营的帖子。在儒意电影担任潮玩市场营销实习生期间，我主要负责时光网小红书与天猫平台的内容策划及运营，参与了小马宝莉、自嘲熊、福运座驾、河狸变身计划、迈克尔·杰克逊大电影、Emoji 等联名及自研 IP 的营销推广。从前期选题策划、文案撰写、产品摄影与视频制作，到后期用户互动、产品手册制作、线下布展及现场销售，我参与了从内容创作、品牌传播到销售转化的多个环节。\n\n在这个过程中，我逐渐意识到，站在品牌视角介绍一款产品，与站在消费者视角理解一款产品，是两件很不一样的事情。尤其是潮玩，消费者购买的不只是商品本身，还有对 IP 的情感认同、对某种审美的偏爱，以及对自我个性和生活态度的表达。因此，我开始更加关注不同 IP 背后的受众特征，思考怎样的选题能够引起共鸣、怎样的视觉表达能够吸引用户，以及如何通过内容建立产品与消费者之间的情感连接。\n小红书运营方面：产出 6 篇浏览量破万的笔记，单篇最高浏览量达 6.5 万+，篇均浏览量达 4,000+；6 篇笔记点赞量破千，单篇最高获赞 1.2 万，账号累计涨粉 2,000+。笔记点击率由 9.37% 提升至 30.27%，运营期间单月商品支付金额最高突破 20 万元。\n\n天猫运营方面：协助制作 4 张点击率超过 10% 的产品封面，发布多条浏览量突破 10 万的宣发视频，其中单条视频向直播间的引流点击率达 4.04%。\n\n这段经历让我对marketing有了更具体的认识：好的内容不仅需要创意和审美，更需要理解产品与消费者，思考如何将用户的注意力、兴趣与情感认同转化为实际消费行为。我也逐渐养成了结合内容表现、用户反馈与商业转化来审视创意的习惯。对我而言，市场营销的魅力恰恰在于理性与感性的结合——既需要对人的情绪与需求保持敏感，也需要用数据检验自己的判断，在创意表达与商业目标之间找到平衡。"}, {"source": "Demo · 作品相册", "title": "AI 小作品", "text": "我的 AI 小作品。Codex 启动动画"}, {"source": "三创赛国赛路演 PPT", "title": "三创赛国赛路演 PPT", "text": "这份 18 页国赛路演稿围绕砀山梨展开，主题是打造多渠道电商营销助农新模式。第 2 至 5 页介绍项目背景、痛点和商业模式，包括直播引流、社群合作以及线上线下一体化。"}, {"source": "三创赛国赛路演 PPT", "title": "三创赛国赛路演 PPT", "text": "第 8 至 14 页展示内容平台、社群、营销活动、直播和销售数据，并复盘品牌特色、用户需求与内容差异化。第 15 至 17 页提出梨产品加工、梨园研学与线上云游等设想，属于未来展望。"}]);
 const chatHistory=[];
 const chatAPI=location.protocol==='file:'?'http://127.0.0.1:8764/api/chat':'/api/chat';
 let asking=false;
@@ -1278,26 +1292,30 @@ function bubble(content,outgoing=false){
 }
 function referencePreview(question,history){
   const matches=selectEvidence(evidence,question,history).filter(v=>v.score>=2).slice(0,2);
-  if(!matches.length)return {answer:'已接入的资料里没有找到直接相关的记录。你可以问问实习、教育或项目经历。',sources:[]};
+  if(!matches.length)return {answer:'这个问题，我还没有留下可以分享的回答。',sources:[]};
+  const best=matches[0].item;
+  if(best.archive)return {answer:best.text,sources:[best.source]};
   return {answer:matches.map(({item})=>(item.title?'【'+item.title+'】\n':'')+item.text).join('\n\n'),sources:[...new Set(matches.map(v=>v.item.source))]};
 }
 async function askAvatar(question){
   question=question.trim().slice(0,1000);if(asking||!question)return;
   asking=true;chatForm.querySelector('button').disabled=true;chatInput.value='';
-  avatarChat.querySelector('.chat-suggestions').hidden=true;
   bubble(question,true);const reply=bubble('正在查阅资料…');
   const history=chatHistory.slice(-8);
   let result,cloud=false;
   try{
-    const response=await fetch(chatAPI,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',
-      body:JSON.stringify({question,history}),signal:AbortSignal.timeout(50000)});
-    if(!response.ok)throw Error('HTTP '+response.status);
-    result=await response.json();
-    if(typeof result.answer!=='string'||!result.answer.trim())throw Error('Empty reply');
-    cloud=true;chatMode.textContent='云端 AI · 依据潼潼提供的资料回答';
+    if(location.hostname.endsWith('.github.io')) {
+      result=referencePreview(question,history);
+    } else {
+      const response=await fetch(chatAPI,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',
+        body:JSON.stringify({question,history}),signal:AbortSignal.timeout(50000)});
+      if(!response.ok)throw Error('HTTP '+response.status);
+      result=await response.json();
+      if(typeof result.answer!=='string'||!result.answer.trim())throw Error('Empty reply');
+      cloud=true;
+    }
   }catch{
     result=referencePreview(question,history);
-    chatMode.textContent='资料摘录 · 云端 AI 当前未连接';
   }finally{
     asking=false;chatForm.querySelector('button').disabled=false;
   }
@@ -1310,7 +1328,6 @@ async function askAvatar(question){
   if(avatarChat.open&&matchMedia('(pointer:fine)').matches)chatInput.focus({preventScroll:true});
 }
 chatForm.onsubmit=e=>{e.preventDefault();askAvatar(chatInput.value)};
-for(const btn of avatarChat.querySelectorAll('.chat-suggestions button'))btn.onclick=()=>askAvatar(btn.textContent);
 
 const audioPlayer=document.querySelector('#player');
 const musicBox=document.querySelector('#music-box');
@@ -1526,6 +1543,36 @@ const stillViewer=document.querySelector('#still-viewer'),stillImage=document.qu
 const stillClose=document.querySelector('#still-close'),stillPrev=document.querySelector('#still-prev'),stillNext=document.querySelector('#still-next');
 let stills=[],stillIndex=0,stillTitle='';
 const stillCanvas=document.querySelector('#still-canvas'),stillZoom=document.querySelector('#still-zoom');
+let photoGallery=null, photoMotion=null;
+function clearPhotoMotion(){
+  if(!photoMotion)return;
+  photoMotion.onfinish=null;
+  photoMotion.cancel();
+  photoMotion=null;
+  stillViewer.querySelector('.moving-photo')?.remove();
+  stillViewer.classList.remove('photo-flight');
+}
+function animatePhoto(returning){
+  if(!photoGallery||reduced.matches||!stillImage.animate)return false;
+  const thumbnail=[...photoGallery.querySelectorAll('.photo-tile img')].find(img=>img.src===stillImage.src);
+  if(!thumbnail||!stillImage.naturalWidth)return false;
+  if(returning)thumbnail.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
+  const small=thumbnail.getBoundingClientRect(),large=stillImage.getBoundingClientRect();
+  if(!small.width||!small.height||!large.width||!large.height)return false;
+  clearPhotoMotion();
+  const copy=new Image();
+  copy.className='moving-photo';copy.alt='';copy.src=stillImage.src;
+  Object.assign(copy.style,{left:large.left+'px',top:large.top+'px',width:large.width+'px',height:large.height+'px'});
+  stillViewer.append(copy);
+  stillViewer.classList.add('photo-flight');
+  const frames=[{transform:`translate(${small.x-large.x}px,${small.y-large.y}px) scale(${small.width/large.width},${small.height/large.height})`},{transform:'none'}];
+  photoMotion=copy.animate(returning?frames.reverse():frames,{duration:returning?220:260,easing:'cubic-bezier(.2,.75,.2,1)',fill:'both'});
+  photoMotion.onfinish=()=>{
+    clearPhotoMotion();
+    if(returning)stillViewer.close();
+  };
+  return true;
+}
 function setStillZoom(zoomed){
   stillViewer.classList.toggle('is-zoomed',zoomed);
   stillZoom.setAttribute('aria-pressed',String(zoomed));
@@ -1535,6 +1582,7 @@ function setStillZoom(zoomed){
 stillZoom.onclick=()=>setStillZoom(!stillViewer.classList.contains('is-zoomed'));
 function showStill(index){
   if(index<0||index>=stills.length)return;
+  clearPhotoMotion();
   setStillZoom(false);
   stillIndex=index;
   const asset=stills[index];stillImage.src=mediaURL(asset);
@@ -1543,14 +1591,26 @@ function showStill(index){
   document.querySelector('#still-count').textContent=(index+1)+' / '+stills.length;
   stillPrev.disabled=index===0;stillNext.disabled=index===stills.length-1;
 }
-function openStills(items,index,title,slides=false){
+function openStills(items,index,title,slides=false,gallery=null){
   stopPageTurn();stills=items;stillTitle=title;
+  photoGallery=gallery;
   stillPrev.textContent=slides?'上一页':'上一张';stillNext.textContent=slides?'下一页':'下一张';
   showStill(index);stillViewer.showModal();stillClose.focus({preventScroll:true});
+  if(gallery&&!reduced.matches){
+    if(stillImage.complete)animatePhoto(false);
+    else stillImage.decode().then(()=>{
+      if(stillViewer.open&&stills===items&&stillIndex===index&&!photoMotion)animatePhoto(false);
+    }).catch(()=>{});
+  }
 }
 stillPrev.onclick=()=>showStill(stillIndex-1);stillNext.onclick=()=>showStill(stillIndex+1);
-stillClose.onclick=()=>stillViewer.close();
-stillViewer.addEventListener('close',()=>{stills=[];stillImage.removeAttribute('src')});
+function dismissStill(){
+  if(photoGallery)setStillZoom(false);
+  if(!animatePhoto(true))stillViewer.close();
+}
+stillClose.onclick=dismissStill;
+stillViewer.addEventListener('cancel',event=>{event.preventDefault();dismissStill()});
+stillViewer.addEventListener('close',()=>{clearPhotoMotion();photoGallery=null;stills=[];stillImage.removeAttribute('src')});
 stillViewer.addEventListener('keydown',event=>{
   if(event.key==='ArrowLeft'||event.key==='ArrowRight'){
     event.preventDefault();showStill(stillIndex+(event.key==='ArrowRight'?1:-1));
@@ -1588,7 +1648,7 @@ function mediaFigure(asset,title,photos=[asset]){
     link.download=asset.name;link.href=asset.src;figure.append(link);
   }else{
     const alt=asset.alt||asset.caption||title;
-    figure.append(previewButton(mediaURL(asset),alt,'放大查看 · '+alt,()=>openStills(photos,photos.indexOf(asset),title)));
+    figure.append(previewButton(mediaURL(asset),alt,'放大查看 · '+alt,()=>openStills(photos,photos.indexOf(asset),title,false,figure.closest('.skill-gallery'))));
   }
   if(asset.caption&&asset.kind!=='document')figure.append(textElement('figcaption',asset.caption));
   return figure;
